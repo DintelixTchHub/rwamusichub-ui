@@ -196,7 +196,7 @@ export default function GroupsPage() {
           <label className="text-xs font-bold">Name<input required className="field mt-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
           <label className="text-xs font-bold">Type<input className="field mt-2" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} /></label>
           <label className="text-xs font-bold">About<input className="field mt-2" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
-          <p className="text-xs text-muted">Every group is part of the public Rwanda Music Hub community.</p>
+          <p className="text-xs text-muted">Every group is part of the public  community.</p>
           <div className="flex flex-wrap justify-end gap-2">
             <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
             <button className="btn-primary">{editingGroupId ? 'Save changes' : 'Create'}</button>

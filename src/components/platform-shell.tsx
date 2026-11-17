@@ -34,6 +34,8 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
@@ -41,10 +43,12 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
+    setAuthReady(false);
     if (!getAccessToken()) {
       router.replace('/login');
       return;
     }
+    setAuthError('');
     try {
       const saved = window.localStorage.getItem('rmh.user');
       if (saved) setUser(JSON.parse(saved));
@@ -58,11 +62,18 @@ export function PlatformShell({ children }: { children: ReactNode }) {
       window.localStorage.setItem('rmh.user', JSON.stringify(currentUser));
       if (!currentUser.onboardingCompleted && pathname !== '/app/onboarding') {
         router.replace('/app/onboarding');
+        return;
       } else if (currentUser.onboardingCompleted && pathname === '/app/onboarding') {
         router.replace('/app');
+        return;
       }
+      setAuthReady(true);
     }).catch((reason: unknown) => {
       console.error('Could not load the current account.', reason);
+      if (active) {
+        setAuthError(reason instanceof Error ? reason.message : 'Could not verify your account.');
+        setAuthReady(true);
+      }
     });
     return () => { active = false; };
   }, [pathname, router]);
@@ -198,7 +209,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const sidebar = (
     <aside className="flex h-full flex-col border-r border-line bg-white px-3 py-4 sm:px-5 sm:py-6">
       <div className="flex items-center justify-between">
-        <Brand />
+        <Brand href="/app" />
       </div>
       <div className="mt-6 sm:mt-10">
         <p className="eyebrow mb-3 px-2 sm:px-3">Workspace</p>
@@ -228,6 +239,15 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   );
 
   return (
+    !authReady || authError ? (
+      <main className="grid min-h-screen place-items-center bg-canvas p-6">
+        <section className="card w-full max-w-md p-6 text-center">
+          {authError
+            ? <><h1 className="text-lg font-extrabold">Could not verify your account</h1><p className="mt-2 text-sm text-muted">{authError}</p><button type="button" onClick={() => window.location.reload()} className="btn-primary mt-5">Try again</button></>
+            : <p className="text-sm font-semibold text-muted">Checking your account…</p>}
+        </section>
+      </main>
+    ) : (
     <div className="min-h-screen bg-canvas">
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
         <div className="hidden w-[260px] shrink-0 lg:block">{sidebar}</div>
@@ -240,7 +260,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
                 <button type="submit" className="sr-only">Search</button>
                 <kbd className="rounded border border-line bg-white px-1.5 py-0.5 text-[10px] text-muted">Ctrl K</kbd>
               </form>
-              <span className="text-[0.82rem] font-bold md:hidden">Rwanda Music Hub</span>
+              <span className="text-[0.82rem] font-bold md:hidden"></span>
             </div>
             <div className="flex items-center gap-2 md:gap-4">
               <Link aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'} href="/app/notifications" className="relative rounded-xl p-2.5 text-muted hover:bg-canvas">
@@ -305,5 +325,6 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         </div>
       )}
     </div>
+    )
   );
 }

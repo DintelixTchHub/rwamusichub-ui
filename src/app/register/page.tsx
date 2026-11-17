@@ -8,18 +8,25 @@ import { Brand } from '@/components/brand';
 import { Notice } from '@/components/notice';
 import { api } from '@/lib/api';
 
+type AccountType = 'Musician' | 'EventOrganizer';
+
 export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({ fullName: '', username: '', email: '', password: '' });
+  const [accountType, setAccountType] = useState<AccountType | ''>('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!accountType) {
+      setError('Choose the account type that best describes you.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      await api('/auth/register', { method: 'POST', body: JSON.stringify(form) });
+      await api('/auth/register', { method: 'POST', body: JSON.stringify({ ...form, accountType }) });
       router.push(`/verify-email?email=${encodeURIComponent(form.email.trim())}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to create your account.');
@@ -47,6 +54,28 @@ export default function RegisterPage() {
             <label className="block text-sm font-bold">Full name<input required autoComplete="name" className="field mt-2" placeholder="Your name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></label>
             <label className="block text-sm font-bold">Username<input required minLength={3} autoComplete="username" className="field mt-2" placeholder="yourartistname" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
             <label className="block text-sm font-bold">Email address<input required type="email" autoComplete="email" className="field mt-2" placeholder="you@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+            <fieldset>
+              <legend className="text-sm font-bold">Choose your account type</legend>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                {([
+                  { value: 'Musician', title: 'Musician', description: 'Build your profile and find music opportunities.' },
+                  { value: 'EventOrganizer', title: 'Event organizer', description: 'Create an organization and connect with performers.' },
+                ] as const).map((option) => (
+                  <label key={option.value} className={`flex cursor-pointer gap-3 rounded-xl border p-3 transition ${accountType === option.value ? 'border-forest bg-[#edf4eb]' : 'border-line hover:border-forest'}`}>
+                    <input
+                      required
+                      type="radio"
+                      name="accountType"
+                      value={option.value}
+                      checked={accountType === option.value}
+                      onChange={() => setAccountType(option.value)}
+                      className="mt-1 accent-[#175b43]"
+                    />
+                    <span><span className="block text-sm font-bold">{option.title}</span><span className="mt-1 block text-xs leading-5 text-muted">{option.description}</span></span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <label className="block text-sm font-bold">Password<input required minLength={8} type="password" autoComplete="new-password" className="field mt-2" placeholder="At least 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
             <button disabled={busy} className="btn-primary w-full py-3">{busy ? 'Creating account…' : 'Create my account'} <ArrowRight size={16} /></button>
           </form>

@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, MailCheck } from 'lucide-react';
 import { Brand } from '@/components/brand';
 import { Notice } from '@/components/notice';
 import { api } from '@/lib/api';
 
 export default function VerifyEmailPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
@@ -16,9 +18,13 @@ export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false);
   const [resendSeconds, setResendSeconds] = useState(60);
   const [notice, setNotice] = useState<{ message: string; success: boolean } | null>(null);
+  const redirectTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setEmail(new URLSearchParams(window.location.search).get('email') ?? '');
+    return () => {
+      if (redirectTimeoutRef.current !== null) window.clearTimeout(redirectTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -42,6 +48,7 @@ export default function VerifyEmailPage() {
         body: JSON.stringify({ email, otp }),
       });
       setSuccess(true);
+      redirectTimeoutRef.current = window.setTimeout(() => router.replace('/login?verified=1'), 1200);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'We could not verify this email address.');
     } finally {
@@ -122,7 +129,7 @@ export default function VerifyEmailPage() {
         {success && <Link href="/login" className="btn-primary mt-6">Go to sign in <ArrowRight size={16} /></Link>}
         {!success && <Link href="/register" className="mt-5 inline-block text-sm font-bold text-forest">Return to registration</Link>}
       </section>
-      <p className="text-center text-xs text-muted">© Rwanda Music Hub · Powered by DCINTELIX</p>
+      <p className="text-center text-xs text-muted">©  · Powered by DCINTELIX</p>
     </main>
   );
 }

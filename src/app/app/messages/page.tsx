@@ -72,7 +72,7 @@ export default function MessagesPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [socketReady, setSocketReady] = useState(false);
   const [draft, setDraft] = useState('');
-  const [typingUserId, setTypingUserId] = useState('');
+  const [presenceUsers, setPresenceUsers] = useState<Record<string, 'typing' | 'recording'>>({});
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleResults, setPeopleResults] = useState<PersonSearchResult[]>([]);
@@ -89,13 +89,14 @@ export default function MessagesPage() {
   const preserveScrollRef = useRef(false);
   const selectedIdRef = useRef('');
   const currentUserIdRef = useRef('');
-  const incomingTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presenceTimeoutsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const outgoingTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const voiceRecorderRef = useRef<MediaRecorder | null>(null);
   const voiceStreamRef = useRef<MediaStream | null>(null);
   const voiceChunksRef = useRef<Blob[]>([]);
   const voiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceConversationIdRef = useRef('');
 
   useEffect(() => {
     const query = peopleSearch.trim();
@@ -167,20 +168,46 @@ export default function MessagesPage() {
     socket.on('auth-error', (payload: { message?: string }) => setError(payload.message ?? 'Socket authentication failed.'));
     socket.on('message-error', (payload: { message?: string }) => setError(payload.message ?? 'Message could not be sent.'));
     socket.on('read-error', (payload: { message?: string }) => setError(payload.message ?? 'Could not synchronize read status.'));
-    socket.on('typing', (payload: { conversationId: string; userId: string; isTyping: boolean }) => {
+    const updatePresence = (
+      payload: { conversationId: string; userId: string },
+      status: 'typing' | 'recording',
+      active: boolean,
+    ) => {
       if (payload.conversationId !== selectedIdRef.current || payload.userId === currentUserIdRef.current) return;
-      if (incomingTypingTimeoutRef.current) clearTimeout(incomingTypingTimeoutRef.current);
-      setTypingUserId(payload.isTyping ? payload.userId : '');
-      if (payload.isTyping) {
-        incomingTypingTimeoutRef.current = setTimeout(() => setTypingUserId(''), 3000);
+      const timeoutKey = `${payload.userId}:${status}`;
+      const previousTimeout = presenceTimeoutsRef.current.get(timeoutKey);
+      if (previousTimeout) clearTimeout(previousTimeout);
+      presenceTimeoutsRef.current.delete(timeoutKey);
+      setPresenceUsers((current) => {
+        if (active) return { ...current, [payload.userId]: status };
+        if (current[payload.userId] !== status) return current;
+        const next = { ...current };
+        delete next[payload.userId];
+        return next;
+      });
+      if (active) {
+        presenceTimeoutsRef.current.set(timeoutKey, setTimeout(() => {
+          setPresenceUsers((current) => {
+            if (current[payload.userId] !== status) return current;
+            const next = { ...current };
+            delete next[payload.userId];
+            return next;
+          });
+          presenceTimeoutsRef.current.delete(timeoutKey);
+        }, 6000));
       }
+    };
+    socket.on('typing', (payload: { conversationId: string; userId: string; isTyping: boolean }) => {
+      updatePresence(payload, 'typing', payload.isTyping);
+    });
+    socket.on('voice-recording', (payload: { conversationId: string; userId: string; isRecording: boolean }) => {
+      updatePresence(payload, 'recording', payload.isRecording);
     });
     socket.on('new-message', (message: Message) => {
       if (message.conversationId === selectedIdRef.current) {
         setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message]);
         socket.emit('messages-delivered', { conversationId: message.conversationId, messageIds: [message.id] });
         socket.emit('mark-read', { conversationId: message.conversationId });
-        setTypingUserId('');
       }
       setConversations((current) => {
         const found = current.some((conversation) => conversation.id === message.conversationId);
@@ -202,21 +229,32 @@ export default function MessagesPage() {
         : message));
     });
 
+    const presenceTimeouts = presenceTimeoutsRef.current;
     return () => {
       active = false;
-      if (incomingTypingTimeoutRef.current) clearTimeout(incomingTypingTimeoutRef.current);
+      presenceTimeouts.forEach((timeout) => clearTimeout(timeout));
+      presenceTimeouts.clear();
       if (outgoingTypingTimeoutRef.current) clearTimeout(outgoingTypingTimeoutRef.current);
       if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
+      if (voiceConversationIdRef.current) {
+        socket.emit('voice-recording', { conversationId: voiceConversationIdRef.current, isRecording: false });
+      }
+      const recorder = voiceRecorderRef.current;
+      if (recorder?.state === 'recording') recorder.stop();
       voiceStreamRef.current?.getTracks().forEach((track) => track.stop());
       socket.disconnect();
       socketRef.current = null;
     };
   }, []);
 
+  useEffect(() => () => {
+    if (voiceConversationIdRef.current === selectedId) stopVoiceNote();
+  }, [selectedId]);
+
   useEffect(() => {
     if (!selectedId) return;
     let active = true;
-    setTypingUserId('');
+    setPresenceUsers({});
     api<Message[]>(`/messaging/conversations/${selectedId}/messages`)
       .then((items) => {
         if (!active) return;
@@ -228,9 +266,18 @@ export default function MessagesPage() {
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load conversation.'));
     return () => {
       active = false;
+      const typingTimeout = outgoingTypingTimeoutRef.current;
+      if (typingTimeout) clearTimeout(typingTimeout);
+      socketRef.current?.emit('stop-typing', { conversationId: selectedId });
       socketRef.current?.emit('leave-room', { conversationId: selectedId });
     };
   }, [selectedId, socketReady]);
+
+  useEffect(() => {
+    presenceTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+    presenceTimeoutsRef.current.clear();
+    setPresenceUsers({});
+  }, [selectedId]);
 
   useEffect(() => {
     if (preserveScrollRef.current) {
@@ -242,6 +289,22 @@ export default function MessagesPage() {
 
   const selected = conversations.find((conversation) => conversation.id === selectedId);
   const participant = selected?.type === 'Direct' ? otherParticipant(selected, currentUser?.id) : undefined;
+  const activePresence = Object.entries(presenceUsers)
+    .map(([userId, status]) => ({
+      name: selected?.members.find((member) => member.userId === userId)?.user.fullName ?? 'Someone',
+      status,
+    }));
+  const recordingNames = activePresence.filter(({ status }) => status === 'recording').map(({ name }) => name);
+  const typingNames = activePresence.filter(({ status }) => status === 'typing').map(({ name }) => name);
+  const describePresence = (names: string[], activity: string) => {
+    if (names.length === 0) return '';
+    if (names.length === 1) return `${names[0]} ${activity}`;
+    if (names.length === 2) return `${names[0]} and ${names[1]} ${activity}`;
+    return `${names[0]}, ${names[1]} +${names.length - 2} ${activity}`;
+  };
+  const presenceLabel = recordingNames.length
+    ? describePresence(recordingNames, recordingNames.length === 1 ? 'is recording a voice note' : 'are recording voice notes')
+    : describePresence(typingNames, typingNames.length === 1 ? 'is typing' : 'are typing');
   const filtered = conversations.filter((conversation) => {
     const person = conversation.type === 'Direct' ? otherParticipant(conversation, currentUser?.id) : undefined;
     const label = `${person?.fullName ?? ''} ${conversation.title ?? ''}`.toLowerCase();
@@ -331,8 +394,8 @@ export default function MessagesPage() {
     setError('');
   }
 
-  async function sendChatMedia(file: File, type: 'Image' | 'Audio') {
-    if (!selectedId) return;
+  async function sendChatMedia(file: File, type: 'Image' | 'Audio', conversationId = selectedId) {
+    if (!conversationId) return;
     if (!socketRef.current?.connected) {
       setError('Chat is offline. Reconnect before sending an attachment.');
       return;
@@ -348,7 +411,7 @@ export default function MessagesPage() {
       if (!asset.id) throw new Error('The upload completed without an attachment id.');
       const socket = socketRef.current;
       if (!socket?.connected) throw new Error('Chat disconnected while the attachment was uploading. Please retry.');
-      socket.emit('send-message', { conversationId: selectedId, type, content: asset.id });
+      socket.emit('send-message', { conversationId, type, content: asset.id });
       setEmojiPickerOpen(false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not send this attachment.');
@@ -369,6 +432,8 @@ export default function MessagesPage() {
   }
 
   async function startVoiceNote() {
+    const conversationId = selectedId;
+    if (!conversationId) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError('Voice recording is not supported by this browser.');
       return;
@@ -377,17 +442,27 @@ export default function MessagesPage() {
     setError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (selectedIdRef.current !== conversationId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const mimeType = VOICE_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       voiceStreamRef.current = stream;
       voiceRecorderRef.current = recorder;
+      voiceConversationIdRef.current = conversationId;
       voiceChunksRef.current = [];
       recorder.ondataavailable = (event) => {
         if (event.data.size) voiceChunksRef.current.push(event.data);
       };
       recorder.onerror = () => {
         stream.getTracks().forEach((track) => track.stop());
+        if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
+        voiceStreamRef.current = null;
+        voiceRecorderRef.current = null;
+        voiceConversationIdRef.current = '';
         setRecordingVoice(false);
+        socketRef.current?.emit('voice-recording', { conversationId, isRecording: false });
         setError('Voice recording failed. Check microphone permissions and try again.');
       };
       recorder.onstop = () => {
@@ -395,29 +470,46 @@ export default function MessagesPage() {
         stream.getTracks().forEach((track) => track.stop());
         voiceStreamRef.current = null;
         voiceRecorderRef.current = null;
+        voiceConversationIdRef.current = '';
         setRecordingVoice(false);
         const type = recorder.mimeType || 'audio/webm';
         const blob = new Blob(voiceChunksRef.current, { type });
         voiceChunksRef.current = [];
         if (blob.size) {
-          void sendChatMedia(new File([blob], `voice-note-${Date.now()}.webm`, { type }), 'Audio');
+          void sendChatMedia(new File([blob], `voice-note-${Date.now()}.webm`, { type }), 'Audio', conversationId);
         }
       };
       recorder.start(250);
       setRecordingVoice(true);
+      socketRef.current?.emit('voice-recording', { conversationId, isRecording: true });
       voiceTimeoutRef.current = setTimeout(() => {
-        if (recorder.state === 'recording') recorder.stop();
+        if (recorder.state === 'recording') stopVoiceNote();
       }, 120_000);
     } catch (reason) {
       voiceStreamRef.current?.getTracks().forEach((track) => track.stop());
       voiceStreamRef.current = null;
+      voiceRecorderRef.current = null;
+      voiceConversationIdRef.current = '';
+      setRecordingVoice(false);
       setError(reason instanceof Error ? reason.message : 'Could not access the microphone.');
     }
   }
 
   function stopVoiceNote() {
     const recorder = voiceRecorderRef.current;
-    if (recorder?.state === 'recording') recorder.stop();
+    const conversationId = voiceConversationIdRef.current;
+    if (recorder?.state === 'recording') {
+      if (conversationId) {
+        socketRef.current?.emit('voice-recording', { conversationId, isRecording: false });
+        voiceConversationIdRef.current = '';
+      }
+      recorder.stop();
+      return;
+    }
+    if (conversationId) {
+      socketRef.current?.emit('voice-recording', { conversationId, isRecording: false });
+      voiceConversationIdRef.current = '';
+    }
   }
 
   function updateDraft(value: string) {
@@ -477,7 +569,7 @@ export default function MessagesPage() {
         <div className={`flex min-w-0 flex-col ${!selectedId ? 'hidden lg:flex' : ''}`}>
           {error && <div className="px-4 pt-3"><Notice>{error}</Notice></div>}
           {selected ? <>
-            <header className="flex items-center gap-3 border-b border-line px-4 py-4 md:px-6"><button onClick={() => setSelectedId('')} className="mr-1 text-sm font-bold text-forest lg:hidden">‹ Back</button><span className="grid h-10 w-10 place-items-center rounded-full bg-[#edf4eb] font-bold text-forest">{participant?.fullName?.[0] ?? selected.title?.[0] ?? 'M'}</span><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-extrabold">{participant?.fullName ?? selected.title ?? 'Conversation'}</h2><p className="text-xs text-muted">{typingUserId ? `${participant?.fullName ?? 'Someone'} is typing…` : socketReady ? 'Connected' : 'Reconnecting…'}</p></div></header>
+            <header className="flex items-center gap-3 border-b border-line px-4 py-4 md:px-6"><button onClick={() => setSelectedId('')} className="mr-1 text-sm font-bold text-forest lg:hidden">‹ Back</button><span className="grid h-10 w-10 place-items-center rounded-full bg-[#edf4eb] font-bold text-forest">{participant?.fullName?.[0] ?? selected.title?.[0] ?? 'M'}</span><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-extrabold">{participant?.fullName ?? selected.title ?? 'Conversation'}</h2><div className="mt-1 flex min-h-4 items-center gap-2" aria-live="polite" aria-atomic="true">{presenceLabel ? <><span className={`chat-presence-mark ${recordingNames.length ? 'chat-presence-mark-recording' : ''}`} aria-hidden="true">{recordingNames.length ? <span className="chat-wave">{[0, 1, 2, 3, 4].map((bar) => <i key={bar} />)}</span> : <span className="chat-typing-dots"><i /><i /><i /></span>}</span><span className={`truncate text-xs font-semibold ${recordingNames.length ? 'text-red-700' : 'text-forest'}`}>{presenceLabel}…</span></> : <span className="text-xs text-muted">{socketReady ? 'Connected' : 'Reconnecting…'}</span>}</div></div></header>
             <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto bg-[#fbfcfa] p-4 md:p-6">
               {hasOlderMessages && <button onClick={() => void loadOlderMessages()} disabled={loadingOlderMessages} className="mx-auto block rounded-lg px-4 py-2 text-xs font-bold text-forest hover:bg-[#edf4eb]">{loadingOlderMessages ? 'Loading…' : 'Load older messages'}</button>}
               {messages.map((message) => {
@@ -500,7 +592,7 @@ export default function MessagesPage() {
                 <input className="field min-w-0 flex-1 bg-canvas" placeholder={recordingVoice ? 'Recording voice note…' : sendingAttachment ? 'Sending attachment…' : 'Write a message…'} value={draft} disabled={recordingVoice || sendingAttachment} onChange={(e) => updateDraft(e.target.value)} />
                 <button disabled={!draft.trim() || sendingAttachment || recordingVoice} className="btn-primary px-3 md:px-4"><Send size={16} /><span className="hidden sm:inline">Send</span></button>
               </form>
-              <p className="mt-2 text-[10px] text-muted">{recordingVoice ? 'Recording… select stop to send your voice note.' : 'Photos and voice notes are private to this conversation.'}</p>
+              <p className={`mt-2 flex min-h-4 items-center gap-2 text-[10px] ${recordingVoice ? 'font-semibold text-red-700' : 'text-muted'}`}>{recordingVoice ? <><span className="chat-wave chat-wave-local" aria-hidden="true">{[0, 1, 2, 3, 4, 5, 6].map((bar) => <i key={bar} />)}</span><span>Recording voice note · select stop to send</span></> : 'Photos and voice notes are private to this conversation.'}</p>
             </div>
           </> : <div className="grid flex-1 place-items-center p-8 text-center"><div><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#edf4eb] text-forest"><MessageCircle size={25} /></span><h2 className="mt-4 font-extrabold">Your next connection starts here</h2><p className="mt-1 max-w-sm text-sm text-muted">Choose a conversation or search for someone by name or username.</p></div></div>}
         </div>

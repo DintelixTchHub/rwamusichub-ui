@@ -271,13 +271,13 @@ export default function DashboardPage() {
       <section className="min-w-0">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="eyebrow">{organizerMode ? 'Your music business workspace' : 'Your community, in rhythm'}</p>
+            <p className="eyebrow">{organizerMode ? 'Event organizer dashboard' : 'Musician dashboard'}</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">{organizerMode ? 'Welcome back' : 'Good to have you here'}{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}.</h1>
             <p className="mt-2 max-w-2xl text-sm text-muted">{organizerMode ? 'Discover talented musicians, connect with professionals and organize your next event.' : 'Connect with music professionals. Discover opportunities. Grow your music career.'}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(user?.accountType === 'EventOrganizer' || managedOrganizations.length > 0) && profileSummary && <div className="flex rounded-xl border border-line bg-white p-1">
-              <button type="button" onClick={() => setDashboardMode('EventOrganizer')} className={`rounded-lg px-3 py-2 text-xs font-bold ${organizerMode ? 'bg-forest text-white' : 'text-muted'}`}>Organizer</button>
+            {(user?.accountType === 'EventOrganizer' || managedOrganizations.length > 0) && <div className="flex rounded-xl border border-line bg-white p-1">
+              <button type="button" onClick={() => setDashboardMode('EventOrganizer')} className={`rounded-lg px-3 py-2 text-xs font-bold ${organizerMode ? 'bg-forest text-white' : 'text-muted'}`}>Event organizer</button>
               <button type="button" onClick={() => setDashboardMode('Musician')} className={`rounded-lg px-3 py-2 text-xs font-bold ${!organizerMode ? 'bg-forest text-white' : 'text-muted'}`}>Musician</button>
             </div>}
             <Link href={organizerMode ? '/app/discover' : '/app/opportunities'} className="btn-secondary text-sm">{organizerMode ? 'Explore musicians' : 'Explore opportunities'} <ArrowRight size={16} /></Link>

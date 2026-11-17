@@ -632,7 +632,7 @@ export default function OnboardingPage() {
             </label>
             <label className="text-xs font-bold sm:col-span-2">Portfolio description (optional)<textarea rows={3} className="field mt-2" value={portfolioDraft.description} onChange={(event) => setPortfolioDraft({ ...portfolioDraft, description: event.target.value })} /></label>
             {!!portfolio.length && <div className="sm:col-span-2 rounded-xl bg-canvas p-4"><p className="text-xs font-bold">Saved portfolio items</p>{portfolio.map((item) => <p key={item.id} className="mt-1 text-sm text-muted">{item.title}</p>)}</div>}
-            <p className="text-xs leading-5 text-muted sm:col-span-2">External video links are saved as links; Rwanda Music Hub does not download social-media videos.</p>
+            <p className="text-xs leading-5 text-muted sm:col-span-2">External video links are saved as links;  does not download social-media videos.</p>
           </div>}
 
           {step === 4 && <div className="mt-6 space-y-4">
@@ -653,7 +653,7 @@ export default function OnboardingPage() {
               {!!portfolio.length && <p className="mt-3 text-sm text-muted">Portfolio: {portfolio.map((item) => item.title).join(', ')}</p>}
               {!!portfolioDraft.title && <p className="mt-2 text-sm text-muted">New portfolio item: {portfolioDraft.title}</p>}
             </div>}
-            <p className="text-sm leading-6 text-muted">Review your details, use Back to make changes, then complete setup to enter the shared Rwanda Music Hub community.</p>
+            <p className="text-sm leading-6 text-muted">Review your details, use Back to make changes, then complete setup to enter the shared  community.</p>
           </div>}
 
           <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-line pt-5">

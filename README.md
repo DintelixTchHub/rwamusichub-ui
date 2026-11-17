@@ -1,6 +1,6 @@
-# Rwanda Music Hub Frontend
+#  Frontend
 
-The client application for Rwanda Music Hub, built with Next.js App Router, React, TypeScript and Tailwind CSS. It is designed to work with the NestJS API in `../backend`.
+The client application for , built with Next.js App Router, React, TypeScript and Tailwind CSS. It is designed to work with the NestJS API in `../backend`.
 
 ## Local configuration
 

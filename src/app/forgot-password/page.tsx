@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
           </button>
         </form>
       </section>
-      <p className="text-center text-xs text-muted">© Rwanda Music Hub · Powered by DCINTELIX</p>
+      <p className="text-center text-xs text-muted">©  · Powered by DCINTELIX</p>
     </main>
   );
 }

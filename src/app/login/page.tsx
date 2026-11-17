@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Brand } from '@/components/brand';
@@ -15,7 +15,12 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setEmailVerified(new URLSearchParams(window.location.search).get('verified') === '1');
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,6 +51,7 @@ export default function LoginPage() {
           <h1 className="mt-2 text-3xl font-black tracking-tight">Your music community is waiting.</h1>
           <p className="mt-2 text-sm text-muted">Sign in to pick up where you left off.</p>
           <form onSubmit={submit} className="mt-8 space-y-4">
+            {emailVerified && <Notice kind="success">Email verified. Sign in to continue to onboarding.</Notice>}
             {error && <Notice>{error}</Notice>}
             <label className="block text-sm font-bold">Email address<input required type="email" autoComplete="email" className="field mt-2" placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
             <label className="block text-sm font-bold">Password<input required type="password" autoComplete="current-password" className="field mt-2" placeholder="Your password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
@@ -54,7 +60,7 @@ export default function LoginPage() {
           </form>
           <p className="mt-6 text-center text-sm text-muted">New to the hub? <Link href="/register" className="font-bold text-forest">Create an account</Link></p>
         </div>
-        <p className="text-xs text-muted">© Rwanda Music Hub · Powered by DCINTELIX</p>
+        <p className="text-xs text-muted">©  · Powered by DCINTELIX</p>
       </section>
       <aside className="relative hidden overflow-hidden bg-forest p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-lime/15 blur-3xl" />
