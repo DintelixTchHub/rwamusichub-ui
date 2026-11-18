@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import {
-  Bell, BriefcaseBusiness, CalendarDays, Compass, Home, LogOut, Menu, MessageCircle,
+  Bell, BriefcaseBusiness, CalendarDays, Compass, Home, LoaderCircle, LogOut, Menu, MessageCircle,
   Bookmark, Music2, Search, Settings, UserRoundPlus, Users, X,
 } from 'lucide-react';
 import { Brand } from './brand';
@@ -260,7 +260,10 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         <section className="card w-full max-w-md p-6 text-center">
           {authError
             ? <><h1 className="text-lg font-extrabold">Could not verify your account</h1><p className="mt-2 text-sm text-muted">{authError}</p><button type="button" onClick={() => window.location.reload()} className="btn-primary mt-5">Try again</button></>
-            : <p className="text-sm font-semibold text-muted">Checking your account…</p>}
+            : <div role="status" aria-live="polite" className="flex flex-col items-center gap-3 py-2">
+              <LoaderCircle size={28} aria-hidden="true" className="animate-spin text-forest" />
+              <p className="text-sm font-semibold text-muted">R.M.H</p>
+            </div>}
         </section>
       </main>
     ) : (
