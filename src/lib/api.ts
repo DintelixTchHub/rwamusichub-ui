@@ -21,6 +21,16 @@ type ApiEnvelope<T> = {
 
 type SessionTokens = { accessToken: string; refreshToken: string };
 
+function responseErrorMessage(status: number, message: string | undefined, fallback: string) {
+  if (status >= 500) return 'Something went wrong on our end. Please try again in a little while.';
+  if (status === 404) return 'We couldn’t find what you’re looking for. It may have been removed or is no longer available.';
+  if (status === 403) return 'You don’t have permission to do that.';
+  if (message && /(cannot (get|post|put|patch|delete)|forbidden resource|property .* should not exist|internal server error)/i.test(message)) {
+    return fallback;
+  }
+  return message || fallback;
+}
+
 function isSessionTokens(value: unknown): value is SessionTokens {
   return value !== null
     && typeof value === 'object'
@@ -59,8 +69,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (!response.ok) {
     const message = body && 'message' in body
       ? Array.isArray(body.message) ? body.message.join(', ') : body.message
-      : 'The request could not be completed.';
-    throw new ApiError(message || 'The request could not be completed.', response.status);
+      : undefined;
+    throw new ApiError(responseErrorMessage(response.status, message, 'We couldn’t complete that request. Please try again.'), response.status);
   }
 
   if (body && typeof body === 'object' && 'data' in body) return body.data as T;
@@ -87,8 +97,8 @@ export async function uploadMedia<T>(file: File, category: string, visibility = 
   if (!response.ok) {
     const message = body && 'message' in body
       ? Array.isArray(body.message) ? body.message.join(', ') : body.message
-      : 'The upload could not be completed.';
-    throw new ApiError(message || 'The upload could not be completed.', response.status);
+      : undefined;
+    throw new ApiError(responseErrorMessage(response.status, message, 'We couldn’t upload your file. Please try again.'), response.status);
   }
 
   if (body && typeof body === 'object' && 'data' in body) return body.data as T;
@@ -139,7 +149,7 @@ async function refreshAccessToken() {
         cache: 'no-store',
       });
     } catch {
-      throw new ApiError('Could not reach the API to refresh your session. Check your connection and try again.', 0);
+      throw new ApiError('We couldn’t reconnect your account. Check your internet connection and try again.', 0);
     }
 
     const body: unknown = await response.json().catch(() => null);
@@ -169,7 +179,7 @@ async function fetchWithSession(path: string, options: RequestInit, headers: Hea
   try {
     response = await send();
   } catch {
-    throw new ApiError('Could not reach the API. Check the backend URL and try again.', 0);
+    throw new ApiError('We couldn’t connect. Check your internet connection and try again.', 0);
   }
 
   if (response.status === 401 && getAccessToken() && !isPublicAuthPath(path)) {
@@ -178,7 +188,7 @@ async function fetchWithSession(path: string, options: RequestInit, headers: Hea
       try {
         response = await send();
       } catch {
-        throw new ApiError('Could not reach the API. Check the backend URL and try again.', 0);
+        throw new ApiError('We couldn’t connect. Check your internet connection and try again.', 0);
       }
     } else {
       throw new ApiError('Your session has expired. Please sign in again.', 401);

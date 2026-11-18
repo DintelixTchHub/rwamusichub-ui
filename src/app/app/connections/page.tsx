@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, MessageCircle, UserRoundCheck, UserRoundPlus, UsersRound } from 'lucide-react';
 import { Notice } from '@/components/notice';
+import { UserAvatar } from '@/components/user-avatar';
 import { api } from '@/lib/api';
 import { User } from '@/lib/types';
 
@@ -81,7 +82,7 @@ export default function ConnectionsPage() {
           if (!person) return null;
           const isFollowing = following.some(({ following: followed }) => followed?.id === person.id);
           return <article key={connection.id} className="card flex items-center gap-3 p-4">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-lime font-extrabold text-forest">{person.fullName[0] ?? 'M'}</span>
+            <UserAvatar src={person.avatarUrl} name={person.fullName} size={44} />
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-sm font-extrabold">{person.profile?.stageName || person.fullName}</h2>
               <p className="truncate text-xs text-muted">@{person.username}{person.profile?.city ? ` · ${person.profile.city}` : ''}</p>

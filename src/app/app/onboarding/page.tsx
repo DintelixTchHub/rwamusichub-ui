@@ -273,7 +273,7 @@ export default function OnboardingPage() {
     try {
       const asset = await uploadMedia<MediaAsset>(file, category, 'Public');
       if (!asset.id || !asset.url) {
-        throw new Error('The image uploaded, but R2 did not return a public URL. Check the backend R2 configuration.');
+        throw new Error('We couldn’t finish uploading this image. Please try again or choose another file.');
       }
       if (category === 'Avatar') {
         setPersonal((current) => ({ ...current, avatarMediaId: asset.id, avatarUrl: asset.url ?? '' }));
@@ -595,7 +595,7 @@ export default function OnboardingPage() {
             <label className="text-xs font-bold">Short professional biography<textarea required maxLength={5000} rows={4} className="field mt-2" value={professional.biography} onChange={(event) => setProfessional({ ...professional, biography: event.target.value })} /></label>
             <div>
               <p className="text-xs font-bold">Professions <span className="font-normal text-muted">(select at least one; multiple allowed)</span></p>
-              <div className="mt-2 flex flex-wrap gap-2">{professions.map(({ id, name }) => <label key={id} className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-semibold ${selectedProfessions.includes(id) ? 'border-forest bg-[#edf4eb] text-forest' : 'border-line text-muted'}`}><input className="sr-only" type="checkbox" checked={selectedProfessions.includes(id)} onChange={() => toggleSelection(selectedProfessions, setSelectedProfessions, id)} />{name}</label>)}{!professions.length && <span className="text-xs text-muted">No profession options are available. Run the backend catalog seed.</span>}</div>
+              <div className="mt-2 flex flex-wrap gap-2">{professions.map(({ id, name }) => <label key={id} className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-semibold ${selectedProfessions.includes(id) ? 'border-forest bg-[#edf4eb] text-forest' : 'border-line text-muted'}`}><input className="sr-only" type="checkbox" checked={selectedProfessions.includes(id)} onChange={() => toggleSelection(selectedProfessions, setSelectedProfessions, id)} />{name}</label>)}{!professions.length && <span className="text-xs text-muted">Profession choices aren’t available right now. Please try again later.</span>}</div>
             </div>
             <div>
               <p className="text-xs font-bold">Music genres <span className="font-normal text-muted">(select at least one; multiple allowed)</span></p>
@@ -621,7 +621,7 @@ export default function OnboardingPage() {
                 setUploading(true);
                 try {
                   const asset = await uploadMedia<MediaAsset>(file, 'Portfolio', 'Public');
-                  if (!asset.url) throw new Error('No public media URL was returned. Check backend R2 configuration.');
+                  if (!asset.url) throw new Error('We couldn’t finish uploading this media. Please try again or choose another file.');
                   setPortfolioDraft((current) => ({ ...current, mediaUrl: asset.url ?? '' }));
                   setError('');
                   setSuccess('Portfolio media uploaded.');

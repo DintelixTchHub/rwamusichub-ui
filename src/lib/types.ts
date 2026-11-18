@@ -102,4 +102,5 @@ export type NotificationItem = {
   isRead: boolean;
   createdAt: string;
   entityId?: string | null;
+  actionUrl?: string | null;
 };

@@ -142,7 +142,7 @@ export default function OrganizationDetailPage() {
     setError('');
     try {
       const asset = await uploadMedia<MediaAsset>(file, field === 'logoUrl' ? 'Organization' : 'Cover', 'Public');
-      if (!asset.url) throw new Error('No public image URL was returned. Check backend R2 configuration.');
+      if (!asset.url) throw new Error('We couldn’t finish uploading this image. Please try again or choose another file.');
       setForm((current) => ({ ...current, [field]: asset.url ?? '' }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not upload this organization image.');
@@ -185,7 +185,7 @@ export default function OrganizationDetailPage() {
             <div className="min-w-0 flex-1"><h3 className="font-extrabold">{opportunity.title}</h3><div className="mt-1 flex flex-wrap gap-3 text-xs text-muted">{opportunity.location && <span className="inline-flex items-center gap-1"><MapPin size={12} />{opportunity.location}</span>}{opportunity.deadline && <span className="inline-flex items-center gap-1"><CalendarDays size={12} />Apply by {new Date(opportunity.deadline).toLocaleDateString()}</span>}</div></div>
             <Link href={`/app/opportunities/${opportunity.id}`} className="btn-primary px-3 py-2 text-xs">View opportunity</Link>
           </article>)}
-          {!organization.opportunities.length && <div className="card p-7 text-center text-sm text-muted">No open opportunities at the moment.</div>}
+          {!organization.opportunities.length && <div className="card p-7 text-center text-sm text-muted">There aren’t any open opportunities right now. Check back soon.</div>}
         </div>
       </>}
       {editing && organization && <Modal title="Manage organization" onClose={() => setEditing(false)}>

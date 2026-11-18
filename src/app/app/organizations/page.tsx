@@ -101,7 +101,7 @@ export default function OrganizationsPage() {
           </div>
         </article>)}
       </div>}
-      {!loading && !organizations.length && !error && <div className="card mt-5 p-9 text-center"><Building2 className="mx-auto text-muted" /><h2 className="mt-3 font-extrabold">No organizations found</h2><p className="mt-1 text-sm text-muted">Try another search, or create an organization for your music project.</p></div>}
+      {!loading && !organizations.length && !error && <div className="card mt-5 p-9 text-center"><Building2 className="mx-auto text-muted" /><h2 className="mt-3 font-extrabold">No organizations to show</h2><p className="mt-1 text-sm text-muted">Try a different search, or create an organization for your music project.</p></div>}
       {formOpen && <Modal title="Create an organization" onClose={() => setFormOpen(false)}>
         <form onSubmit={createOrganization} className="grid gap-4 sm:grid-cols-2">
           {error && <div className="sm:col-span-2"><Notice>{error}</Notice></div>}

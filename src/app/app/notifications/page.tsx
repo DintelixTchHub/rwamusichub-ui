@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { Bell, CheckCheck, MessageCircle } from 'lucide-react';
 import { Notice } from '@/components/notice';
@@ -80,7 +81,7 @@ export default function NotificationsPage() {
     <section className="mx-auto max-w-4xl">
       <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">Stay in the loop</p><h1 className="mt-2 text-3xl font-black tracking-tight">Notifications</h1><p className="mt-2 text-sm text-muted">{data.unreadCount} unread updates</p></div><button onClick={() => void markAllRead()} disabled={!data.unreadCount} className="btn-secondary"><CheckCheck size={16} /> Mark all as read</button></div>
       {error && <div className="mt-5"><Notice>{error}</Notice></div>}
-      <div className="mt-6 space-y-3">{data.items.map((item) => <article key={item.id} className={`card flex items-start gap-4 p-4 md:p-5 ${item.isRead ? '' : 'border-l-4 border-lime'}`}><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf4eb] text-forest">{item.type === 'NewMessage' ? <MessageCircle size={19} /> : <Bell size={19} />}</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.content}</p><p className="mt-1 text-xs text-muted">{new Date(item.createdAt).toLocaleString()}</p></div>{!item.isRead && <button onClick={() => void markRead(item.id)} className="text-xs font-bold text-forest">Mark read</button>}</article>)}</div>
+      <div className="mt-6 space-y-3">{data.items.map((item) => <article key={item.id} className={`card flex items-start gap-4 p-4 md:p-5 ${item.isRead ? '' : 'border-l-4 border-lime'}`}><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf4eb] text-forest">{item.type === 'NewMessage' ? <MessageCircle size={19} /> : <Bell size={19} />}</span><div className="min-w-0 flex-1"><Link href={`/app/notifications/${item.id}`} className="block rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest"><p className="text-sm font-semibold">{item.content}</p><p className="mt-1 text-xs text-muted">{new Date(item.createdAt).toLocaleString()}</p><span className="mt-2 inline-block text-xs font-bold text-forest">View details →</span></Link></div>{!item.isRead && <button onClick={() => void markRead(item.id)} className="text-xs font-bold text-forest">Mark read</button>}</article>)}</div>
       {hasMore && <button onClick={() => void loadMore()} disabled={loadingMore} className="btn-secondary mt-5 w-full py-3">{loadingMore ? 'Loading…' : 'Load older notifications'}</button>}
       {data.items.length === 0 && !error && <div className="card mt-5 p-10 text-center"><Bell className="mx-auto text-muted" /><h2 className="mt-3 font-extrabold">You&apos;re all caught up</h2><p className="mt-1 text-sm text-muted">New activity from your community will show up here.</p></div>}
     </section>

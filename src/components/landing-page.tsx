@@ -146,12 +146,12 @@ function initials(value: string) {
   return value.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
-function EmptyState({ children }: { children: React.ReactNode }) {
+function EmptyState({ children, action = 'Get started' }: { children: React.ReactNode; action?: string }) {
   return (
     <div className="rounded-2xl border border-dashed border-[#cbd8cc] bg-white/70 px-6 py-10 text-center">
       <p className="mx-auto max-w-xl text-sm leading-6 text-muted">{children}</p>
       <Link href="/register" className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-forest">
-        Join  <ArrowRight size={15} />
+        {action} <ArrowRight size={15} />
       </Link>
     </div>
   );
@@ -180,7 +180,8 @@ export function LandingPage() {
       const result = await api<LandingContent>('/public/landing-page');
       setContent(result);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Community content could not be loaded.');
+      console.error('Could not load landing page content.', reason);
+      setError('We’re having trouble loading the latest community updates. Please try again in a moment.');
     } finally {
       setLoading(false);
     }
@@ -280,6 +281,13 @@ export function LandingPage() {
         </div>
       </section>
 
+      {error && (
+        <div role="alert" className="mx-auto mb-8 flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-xl border border-[#efcaca] bg-white p-4 text-sm text-[#842a2a]">
+          <p>{error}</p>
+          <button onClick={() => void loadContent()} className="shrink-0 font-bold underline">Try again</button>
+        </div>
+      )}
+
       <section id="audience" className="bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading eyebrow="Who we bring together" title="Built for Everyone in the Music Industry." description="Wherever you contribute to music, find the people and opportunities that help your work move forward." />
@@ -318,12 +326,6 @@ export function LandingPage() {
             <SectionHeading eyebrow="Real people, real profiles" title="Meet the People Behind Rwanda's Music Industry." description="A snapshot of public musicians who have completed their profiles and chosen to be discovered." />
             <Link href="/app/discover" className="inline-flex items-center gap-2 text-sm font-extrabold text-forest">Discover more <ArrowRight size={16} /></Link>
           </div>
-          {error && (
-            <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#efcaca] bg-white p-4 text-sm text-[#842a2a]">
-              <p>{error}</p>
-              <button onClick={() => void loadContent()} className="font-bold underline">Try again</button>
-            </div>
-          )}
           {loading && <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading public musicians">{[1, 2, 3].map((item) => <div key={item} className="card h-52 animate-pulse bg-white/70" />)}</div>}
           {!loading && content && (content.musicians.length ? (
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -356,7 +358,7 @@ export function LandingPage() {
               })}
             </div>
           ) : (
-            <div className="mt-8"><EmptyState>No public musician profiles are available to feature yet. Join  and create a discoverable profile.</EmptyState></div>
+            <div className="mt-8"><EmptyState action="Create your profile">There aren’t any public musician profiles to feature just yet. Join the community and create a profile so people can discover your music.</EmptyState></div>
           ))}
         </div>
       </section>
@@ -382,7 +384,7 @@ export function LandingPage() {
               </article>
             ))}
           </div>
-        ) : <div className="mt-8"><EmptyState>No published organizations are featured yet. Join the community and bring your organization to the hub.</EmptyState></div>)}
+        ) : <div className="mt-8"><EmptyState action="Add your organization">No organizations are featured just yet. Join the community to introduce your organization to Rwanda’s music scene.</EmptyState></div>)}
       </section>
 
       <section id="groups" className="bg-white py-16 sm:py-20">
@@ -404,7 +406,7 @@ export function LandingPage() {
                 </article>
               ))}
             </div>
-          ) : <div className="mt-8"><EmptyState>No public music groups are available to feature yet. Start a group and invite collaborators.</EmptyState></div>)}
+          ) : <div className="mt-8"><EmptyState action="Get started">There aren’t any public music groups to explore just yet. Join the community and bring musicians together around your next idea.</EmptyState></div>)}
         </div>
       </section>
 
@@ -443,14 +445,14 @@ export function LandingPage() {
               );
             })}
           </div>
-        ) : <div className="mt-8"><EmptyState>No opportunities published yet. Join the community and be among the first to discover new opportunities.</EmptyState></div>)}
+        ) : <div className="mt-8"><EmptyState action="Join the community">There aren’t any opportunities listed just yet. Check back soon—new gigs and collaborations are added as they become available.</EmptyState></div>)}
       </section>
 
       <section id="events" className="bg-[#eef3ec] py-16 sm:py-20">
         <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
           <div>
-            <SectionHeading eyebrow="Events" title="What's Happening in Rwanda's Music Scene?" description="Event listings will appear here when the platform supports public event publishing." />
-            <p className="mt-5 max-w-2xl text-sm leading-6 text-muted">The current platform does not yet include a public events feature, so there are no event listings to show.</p>
+            <SectionHeading eyebrow="Events" title="What’s Happening in Rwanda’s Music Scene?" description="Find concerts, festivals and other events shared by Rwanda’s music community." />
+            <p className="mt-5 max-w-2xl text-sm leading-6 text-muted">There aren’t any event listings to show right now. Check back soon, or join the community to stay connected.</p>
           </div>
           <Link href="/register" className={`${styles.primary} w-fit px-5 py-3 text-sm`}>Join the Community <ArrowRight size={16} /></Link>
         </div>

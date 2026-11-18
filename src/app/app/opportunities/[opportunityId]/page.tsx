@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, CalendarDays, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, MapPin, MessageCircle, Pencil, Trash2 } from 'lucide-react';
 import { Notice } from '@/components/notice';
 import { Modal } from '@/components/modal';
+import { UserAvatar } from '@/components/user-avatar';
 import { api } from '@/lib/api';
 import { Opportunity, User } from '@/lib/types';
 
@@ -23,6 +24,7 @@ type Application = {
   id: string;
   status: 'Pending' | 'Accepted' | 'Rejected' | 'Withdrawn';
   coverLetter?: string | null;
+  reviewMessage?: string | null;
   appliedAt: string;
   applicant?: User & {
     profile?: { stageName?: string | null; headline?: string | null } | null;
@@ -44,6 +46,7 @@ export default function OpportunityDetailPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
+  const [applicationReplies, setApplicationReplies] = useState<Record<string, string>>({});
   const [form, setForm] = useState<OpportunityForm>({
     title: '',
     description: '',
@@ -173,11 +176,28 @@ export default function OpportunityDetailPage() {
     try {
       const updated = await api<Application>(`/opportunities/${opportunity.id}/applications/${item.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, reviewMessage: applicationReplies[item.id] }),
       });
       setApplications((current) => current.map((entry) => entry.id === updated.id ? { ...entry, ...updated } : entry));
+      setApplicationReplies((current) => ({ ...current, [item.id]: '' }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not review this application.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function messageApplicant(applicantId: string) {
+    setBusy(true);
+    setError('');
+    try {
+      const conversation = await api<{ id: string }>('/messaging/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ targetUserId: applicantId }),
+      });
+      router.push(`/app/messages?conversationId=${encodeURIComponent(conversation.id)}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not open a conversation with this applicant.');
     } finally {
       setBusy(false);
     }
@@ -217,23 +237,25 @@ export default function OpportunityDetailPage() {
               {opportunity.deadline && <span>Apply by {new Date(opportunity.deadline).toLocaleDateString()}</span>}
               <span className="text-forest">{opportunity.budget ? `${Number(opportunity.budget).toLocaleString()} ${opportunity.currency ?? 'RWF'}` : 'Open budget'}</span>
             </div>
-            <p className="mt-7 whitespace-pre-wrap text-sm leading-7 text-[#334139]">{opportunity.description || 'No additional details have been provided.'}</p>
+            <p className="mt-7 whitespace-pre-wrap text-sm leading-7 text-[#334139]">{opportunity.description || 'The organizer hasn’t added more details yet.'}</p>
             {isOrganizer ? <div className="mt-8 border-t border-line pt-6">
               <h2 className="text-lg font-extrabold">Applications ({applications.length})</h2>
               <div className="mt-4 space-y-3">
                 {applications.map((item) => <article key={item.id} className="rounded-xl border border-line p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><h3 className="font-bold">{item.applicant?.profile?.stageName || item.applicant?.fullName || 'Applicant'}</h3><p className="mt-1 text-xs text-muted">{item.applicant?.profile?.headline || `@${item.applicant?.username ?? ''}`} · Applied {new Date(item.appliedAt).toLocaleDateString()}</p></div>
+                    <div className="flex items-center gap-3"><UserAvatar src={item.applicant?.avatarUrl} name={item.applicant?.fullName} size={38} /><div><h3 className="font-bold">{item.applicant?.profile?.stageName || item.applicant?.fullName || 'Applicant'}</h3><p className="mt-1 text-xs text-muted">{item.applicant?.profile?.headline || `@${item.applicant?.username ?? ''}`} · Applied {new Date(item.appliedAt).toLocaleDateString()}</p></div></div>
                     <span className="rounded-full bg-canvas px-3 py-1 text-xs font-bold">{item.status}</span>
                   </div>
                   {item.coverLetter && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted">{item.coverLetter}</p>}
-                  {item.status === 'Pending' && <div className="mt-3 flex gap-2"><button onClick={() => void reviewApplication(item, 'Accepted')} disabled={busy} className="btn-primary px-3 py-2 text-xs">Accept</button><button onClick={() => void reviewApplication(item, 'Rejected')} disabled={busy} className="btn-secondary px-3 py-2 text-xs">Decline</button></div>}
+                  {item.reviewMessage && <p className="mt-3 rounded-lg bg-canvas p-3 text-sm text-muted"><span className="font-bold text-forest">Your reply: </span>{item.reviewMessage}</p>}
+                  {item.status === 'Pending' && <><label className="mt-3 block text-xs font-bold">Message for applicant (optional)<textarea maxLength={2000} rows={2} className="field mt-2" value={applicationReplies[item.id] ?? ''} onChange={(event) => setApplicationReplies((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Add a note about your decision or next steps." /></label><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => void reviewApplication(item, 'Accepted')} disabled={busy} className="btn-primary px-3 py-2 text-xs">Accept</button><button onClick={() => void reviewApplication(item, 'Rejected')} disabled={busy} className="btn-secondary px-3 py-2 text-xs">Decline</button></div></>}
+                  {item.status !== 'Withdrawn' && item.applicant && <button onClick={() => { if (item.applicant) void messageApplicant(item.applicant.id); }} disabled={busy} className="btn-secondary mt-3 px-3 py-2 text-xs"><MessageCircle size={14} />Message applicant</button>}
                 </article>)}
-                {applications.length === 0 && <p className="text-sm text-muted">No applications have been submitted yet.</p>}
+                {applications.length === 0 && <p className="text-sm text-muted">There are no applications to review yet.</p>}
               </div>
             </div> : <div className="mt-8 border-t border-line pt-6">
               {application && application.status !== 'Withdrawn' ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas p-4">
-                <div><p className="text-sm font-bold">Your application: {application.status}</p><p className="mt-1 text-xs text-muted">Submitted {new Date(application.appliedAt).toLocaleDateString()}</p></div>
+                <div><p className="text-sm font-bold">Your application: {application.status}</p><p className="mt-1 text-xs text-muted">Submitted {new Date(application.appliedAt).toLocaleDateString()}</p>{application.reviewMessage && <p className="mt-2 max-w-lg whitespace-pre-wrap text-sm text-muted"><span className="font-bold text-forest">Organizer update: </span>{application.reviewMessage}</p>}</div>
                 {application.status === 'Pending' && <button onClick={() => void withdrawApplication()} disabled={busy} className="btn-secondary px-3 py-2 text-xs">{busy ? 'Please wait…' : 'Withdraw application'}</button>}
               </div> : opportunity.status === 'Open' && <form onSubmit={submitApplication} className="space-y-3">
                 <h2 className="text-lg font-extrabold">{application?.status === 'Withdrawn' ? 'Reapply to this opportunity' : 'Apply for this opportunity'}</h2>

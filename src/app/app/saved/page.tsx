@@ -70,7 +70,7 @@ export default function SavedPage() {
           </div>
         </article>)}
       </div>}
-      {!loading && items.length === 0 && !error && <div className="card mt-6 p-10 text-center"><Bookmark className="mx-auto text-muted" /><h2 className="mt-3 font-extrabold">Nothing saved yet</h2><p className="mt-1 text-sm text-muted">Bookmark an opportunity and it will be waiting here.</p><Link href="/app/opportunities" className="btn-primary mt-5">Explore opportunities</Link></div>}
+      {!loading && items.length === 0 && !error && <div className="card mt-6 p-10 text-center"><Bookmark className="mx-auto text-muted" /><h2 className="mt-3 font-extrabold">Your saved list is empty for now</h2><p className="mt-1 text-sm text-muted">Save opportunities you like and they’ll be easy to find here.</p><Link href="/app/opportunities" className="btn-primary mt-5">Explore opportunities</Link></div>}
     </section>
   );
 }

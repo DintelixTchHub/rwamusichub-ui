@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Check, CheckCheck, ImagePlus, MessageCircle, Mic, Plus, Search, Send, Smile, Square, UserRoundPlus, X } from 'lucide-react';
 import { Notice } from '@/components/notice';
+import { UserAvatar } from '@/components/user-avatar';
 import { getAccessToken, SOCKET_URL, api, uploadMedia } from '@/lib/api';
 import { Conversation, Message, User } from '@/lib/types';
 
@@ -58,7 +59,7 @@ type PersonSearchResult = {
   stageName?: string | null;
   headline?: string | null;
   city?: string | null;
-  user: { id: string; fullName: string; username: string };
+  user: { id: string; fullName: string; username: string; avatarUrl?: string | null };
 };
 
 export default function MessagesPage() {
@@ -164,10 +165,10 @@ export default function MessagesPage() {
     socketRef.current = socket;
     socket.on('connect', () => setSocketReady(true));
     socket.on('disconnect', () => setSocketReady(false));
-    socket.on('connect_error', () => setError('Real-time chat connection failed. Check that the backend Socket.IO gateway is running.'));
-    socket.on('auth-error', (payload: { message?: string }) => setError(payload.message ?? 'Socket authentication failed.'));
-    socket.on('message-error', (payload: { message?: string }) => setError(payload.message ?? 'Message could not be sent.'));
-    socket.on('read-error', (payload: { message?: string }) => setError(payload.message ?? 'Could not synchronize read status.'));
+    socket.on('connect_error', () => setError('We’re having trouble connecting to chat. Check your internet connection and try again.'));
+    socket.on('auth-error', (payload: { message?: string }) => setError(payload.message ?? 'Your chat session has ended. Please sign in again.'));
+    socket.on('message-error', (payload: { message?: string }) => setError(payload.message ?? 'We couldn’t send your message. Please try again.'));
+    socket.on('read-error', (payload: { message?: string }) => setError(payload.message ?? 'We couldn’t update the read status. Please try again.'));
     const updatePresence = (
       payload: { conversationId: string; userId: string },
       status: 'typing' | 'recording',
@@ -408,7 +409,7 @@ export default function MessagesPage() {
     setError('');
     try {
       const asset = await uploadMedia<PrivateAttachment>(file, type === 'Image' ? 'Post' : 'Audio', 'Private');
-      if (!asset.id) throw new Error('The upload completed without an attachment id.');
+      if (!asset.id) throw new Error('We couldn’t attach this file. Please try uploading it again.');
       const socket = socketRef.current;
       if (!socket?.connected) throw new Error('Chat disconnected while the attachment was uploading. Please retry.');
       socket.emit('send-message', { conversationId, type, content: asset.id });
@@ -539,9 +540,9 @@ export default function MessagesPage() {
               <div className="mt-2 max-h-56 overflow-y-auto">
                 {searchingPeople && <p className="p-3 text-xs text-muted">Searching people…</p>}
                 {!searchingPeople && peopleSearch.trim().length < 2 && <p className="p-3 text-xs text-muted">Type at least two characters to find people.</p>}
-                {!searchingPeople && peopleSearch.trim().length >= 2 && peopleResults.length === 0 && <p className="p-3 text-xs text-muted">No public profiles match that search.</p>}
+                {!searchingPeople && peopleSearch.trim().length >= 2 && peopleResults.length === 0 && <p className="p-3 text-xs text-muted">We couldn’t find anyone by that name. Try another name or username.</p>}
                 {peopleResults.map((person) => <button key={person.user.id} type="button" onClick={() => void startConversation(person.user.id)} disabled={startingConversation} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-canvas disabled:opacity-60">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-lime text-sm font-bold text-forest">{person.user.fullName[0] ?? 'M'}</span>
+                  <UserAvatar src={person.user.avatarUrl} name={person.user.fullName} size={36} />
                   <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{person.stageName || person.user.fullName}</span><span className="block truncate text-[11px] text-muted">@{person.user.username}{person.city ? ` · ${person.city}` : ''}</span></span>
                   <span className="text-[11px] font-bold text-forest">{startingConversation ? 'Starting…' : 'Message'}</span>
                 </button>)}
@@ -558,18 +559,18 @@ export default function MessagesPage() {
                   ? '🎙 Voice note'
                   : lastMessage?.content ?? 'Start a conversation';
               return <button key={conversation.id} onClick={() => setSelectedId(conversation.id)} className={`flex w-full items-center gap-3 rounded-xl p-3 text-left ${selectedId === conversation.id ? 'bg-[#edf4eb]' : 'hover:bg-canvas'}`}>
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-lime font-extrabold text-forest">{person?.fullName?.[0] ?? conversation.title?.[0] ?? 'M'}</span>
+                <UserAvatar src={person?.avatarUrl} name={person?.fullName ?? conversation.title} size={44} />
                 <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">{person?.fullName ?? conversation.title ?? 'Conversation'}</span><span className="mt-1 block truncate text-xs text-muted">{preview}</span></span>
               </button>;
             })}
-            {filtered.length === 0 && <p className="p-5 text-center text-xs text-muted">No conversations yet. Use + to find someone and start a chat.</p>}
+            {filtered.length === 0 && <p className="p-5 text-center text-xs text-muted">{search.trim() ? 'No conversations match that search. Try another name.' : 'You haven’t started a conversation yet. Use + to find someone and say hello.'}</p>}
             {hasMoreConversations && <button onClick={() => void loadMoreConversations()} disabled={loadingMoreConversations} className="w-full p-3 text-xs font-bold text-forest">{loadingMoreConversations ? 'Loading…' : 'Load more conversations'}</button>}
           </div>
         </aside>
         <div className={`flex min-w-0 flex-col ${!selectedId ? 'hidden lg:flex' : ''}`}>
           {error && <div className="px-4 pt-3"><Notice>{error}</Notice></div>}
           {selected ? <>
-            <header className="flex items-center gap-3 border-b border-line px-4 py-4 md:px-6"><button onClick={() => setSelectedId('')} className="mr-1 text-sm font-bold text-forest lg:hidden">‹ Back</button><span className="grid h-10 w-10 place-items-center rounded-full bg-[#edf4eb] font-bold text-forest">{participant?.fullName?.[0] ?? selected.title?.[0] ?? 'M'}</span><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-extrabold">{participant?.fullName ?? selected.title ?? 'Conversation'}</h2><div className="mt-1 flex min-h-4 items-center gap-2" aria-live="polite" aria-atomic="true">{presenceLabel ? <><span className={`chat-presence-mark ${recordingNames.length ? 'chat-presence-mark-recording' : ''}`} aria-hidden="true">{recordingNames.length ? <span className="chat-wave">{[0, 1, 2, 3, 4].map((bar) => <i key={bar} />)}</span> : <span className="chat-typing-dots"><i /><i /><i /></span>}</span><span className={`truncate text-xs font-semibold ${recordingNames.length ? 'text-red-700' : 'text-forest'}`}>{presenceLabel}…</span></> : <span className="text-xs text-muted">{socketReady ? 'Connected' : 'Reconnecting…'}</span>}</div></div></header>
+            <header className="flex items-center gap-3 border-b border-line px-4 py-4 md:px-6"><button onClick={() => setSelectedId('')} className="mr-1 text-sm font-bold text-forest lg:hidden">‹ Back</button><UserAvatar src={participant?.avatarUrl} name={participant?.fullName ?? selected.title} size={40} className="bg-[#edf4eb]" /><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-extrabold">{participant?.fullName ?? selected.title ?? 'Conversation'}</h2><div className="mt-1 flex min-h-4 items-center gap-2" aria-live="polite" aria-atomic="true">{presenceLabel ? <><span className={`chat-presence-mark ${recordingNames.length ? 'chat-presence-mark-recording' : ''}`} aria-hidden="true">{recordingNames.length ? <span className="chat-wave">{[0, 1, 2, 3, 4].map((bar) => <i key={bar} />)}</span> : <span className="chat-typing-dots"><i /><i /><i /></span>}</span><span className={`truncate text-xs font-semibold ${recordingNames.length ? 'text-red-700' : 'text-forest'}`}>{presenceLabel}…</span></> : <span className="text-xs text-muted">{socketReady ? 'Connected' : 'Reconnecting…'}</span>}</div></div></header>
             <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto bg-[#fbfcfa] p-4 md:p-6">
               {hasOlderMessages && <button onClick={() => void loadOlderMessages()} disabled={loadingOlderMessages} className="mx-auto block rounded-lg px-4 py-2 text-xs font-bold text-forest hover:bg-[#edf4eb]">{loadingOlderMessages ? 'Loading…' : 'Load older messages'}</button>}
               {messages.map((message) => {

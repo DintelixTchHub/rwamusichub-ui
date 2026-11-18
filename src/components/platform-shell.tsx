@@ -6,10 +6,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import {
-  Bell, BriefcaseBusiness, Compass, Home, LogOut, Menu, MessageCircle,
+  Bell, BriefcaseBusiness, CalendarDays, Compass, Home, LogOut, Menu, MessageCircle,
   Bookmark, Music2, Search, Settings, UserRoundPlus, Users, X,
 } from 'lucide-react';
 import { Brand } from './brand';
+import { UserAvatar } from './user-avatar';
 import { api, clearSession, getAccessToken, SOCKET_URL } from '@/lib/api';
 import { User } from '@/lib/types';
 
@@ -20,6 +21,8 @@ const navItems = [
   { href: '/app/community', label: 'Community', icon: Users },
   { href: '/app/organizations', label: 'Organizations', icon: Music2 },
   { href: '/app/opportunities', label: 'Opportunities', icon: BriefcaseBusiness },
+  { href: '/app/applications', label: 'My applications', icon: Bookmark },
+  { href: '/app/bookings', label: 'Bookings', icon: CalendarDays },
   { href: '/app/saved', label: 'Saved', icon: Bookmark },
   { href: '/app/messages', label: 'Messages', icon: MessageCircle },
   { href: '/app/groups', label: 'Groups & orgs', icon: Music2 },
@@ -77,6 +80,19 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     });
     return () => { active = false; };
   }, [pathname, router]);
+
+  useEffect(() => {
+    const refreshProfile = () => {
+      api<User>('/auth/me').then((currentUser) => {
+        setUser(currentUser);
+        window.localStorage.setItem('rmh.user', JSON.stringify(currentUser));
+      }).catch((reason: unknown) => {
+        console.error('Could not refresh the account profile.', reason);
+      });
+    };
+    window.addEventListener('rmh:profile-changed', refreshProfile);
+    return () => window.removeEventListener('rmh:profile-changed', refreshProfile);
+  }, []);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!getAccessToken()) return;
@@ -271,9 +287,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
                 <p className="text-sm font-bold">{user?.fullName ?? 'Music maker'}</p>
                 <p className="text-xs text-muted">@{user?.username ?? 'your-profile'}</p>
               </div>
-              <div className="grid h-10 w-10 place-items-center rounded-full bg-lime font-extrabold text-forest">
-                {(user?.fullName ?? 'M').slice(0, 1).toUpperCase()}
-              </div>
+              <UserAvatar src={user?.avatarUrl} name={user?.fullName} size={40} />
               <button onClick={signOut} title="Sign out" className="hidden rounded-xl p-2.5 text-muted hover:bg-canvas sm:block"><LogOut size={18} /></button>
             </div>
           </header>

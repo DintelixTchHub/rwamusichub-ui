@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { ArrowRight, Building2, CalendarDays, ClipboardList, Flag, Heart, ImagePlus, MapPin, MessageCircle, Music2, Send, UserSearch } from 'lucide-react';
-import { api, uploadMedia } from '@/lib/api';
+import { ApiError, api, uploadMedia } from '@/lib/api';
 import { Opportunity, Post, User } from '@/lib/types';
 import { Notice } from '@/components/notice';
 import { Modal } from '@/components/modal';
+import { UserAvatar } from '@/components/user-avatar';
 
 type Comment = { id: string; content: string; createdAt: string; author?: User };
 type CommunitySummary = { id: string; name: string; type: 'Public' | 'Private'; members?: Array<{ userId: string; status: string }> };
@@ -90,7 +91,7 @@ export default function DashboardPage() {
       if (opportunityResult.status === 'fulfilled') setOpportunities(opportunityResult.value);
       else setError(opportunityResult.reason instanceof Error ? opportunityResult.reason.message : 'Could not load opportunities.');
       if (profileResult.status === 'fulfilled') setProfileSummary(profileResult.value);
-      else if (!(profileResult.reason instanceof Error && profileResult.reason.message.includes('404'))) setError(profileResult.reason instanceof Error ? profileResult.reason.message : 'Could not load your professional profile.');
+      else if (!(profileResult.reason instanceof ApiError && profileResult.reason.status === 404)) setError(profileResult.reason instanceof Error ? profileResult.reason.message : 'Could not load your professional profile.');
       setDiscoveriesLoading(false);
     });
   }, []);
@@ -160,7 +161,7 @@ export default function DashboardPage() {
     try {
       const asset = await uploadMedia<MediaAsset>(file, 'Post', 'Public');
       const mediaUrl = asset.url;
-      if (!mediaUrl) throw new Error('Upload completed, but no public media URL was returned. Configure R2_PUBLIC_BASE_URL on the backend.');
+      if (!mediaUrl) throw new Error('We couldn’t finish uploading this post. Please try again or choose another file.');
       setMediaUrls((current) => [...current, mediaUrl]);
       setMediaMimeTypes((current) => [...current, asset.mimeType ?? file.type]);
       setError('');
@@ -300,7 +301,7 @@ export default function DashboardPage() {
             <button type="button" onClick={() => setComposerType('Poll')} className={`rounded-full px-3 py-1.5 text-xs font-bold ${composerType === 'Poll' ? 'bg-forest text-white' : 'bg-canvas text-muted'}`}>Poll</button>
           </div>
           <div className="flex gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-lime font-black text-forest">{user?.fullName?.[0] ?? 'M'}</div>
+            <UserAvatar src={user?.avatarUrl} name={user?.fullName} size={40} />
             <textarea aria-label="Write a post" rows={2} className="field resize-none border-0 bg-canvas focus:bg-white" placeholder="Share a sound, a thought, or what you're working on…" value={content} onChange={(event) => setContent(event.target.value)} />
           </div>
           {composerType === 'Poll' && <div className="mt-3 space-y-2 rounded-xl bg-canvas p-3">
@@ -321,7 +322,7 @@ export default function DashboardPage() {
           {posts.map((post) => (
             <article key={post.id} className="card p-5 md:p-6">
               <div className="flex items-center gap-3">
-                {post.organization?.logoUrl ? <img src={post.organization.logoUrl} alt="" className="h-10 w-10 rounded-full object-cover" /> : <div className="grid h-10 w-10 place-items-center rounded-full bg-[#e6efe7] font-bold text-forest">{post.organization?.name?.[0] ?? post.author?.fullName?.[0] ?? 'M'}</div>}
+                {post.organization?.logoUrl ? <img src={post.organization.logoUrl} alt="" className="h-10 w-10 rounded-full object-cover" /> : post.organization ? <div className="grid h-10 w-10 place-items-center rounded-full bg-[#e6efe7] font-bold text-forest">{post.organization.name[0] ?? 'M'}</div> : <UserAvatar src={post.author?.avatarUrl} name={post.author?.fullName} size={40} />}
                 <div className="min-w-0">
                   {post.organization ? <Link href={`/app/organizations/${post.organization.id}`} className="truncate text-sm font-extrabold hover:text-forest">{post.organization.name}</Link> : <p className="truncate text-sm font-extrabold">{post.author?.fullName ?? 'Music maker'}</p>}
                   <p className="text-xs text-muted">{post.organization ? `${post.organization.type ?? 'Organization'} · ` : post.author?.username ? `@${post.author.username} · ` : ''}{new Date(post.createdAt).toLocaleDateString()}</p>
@@ -348,7 +349,7 @@ export default function DashboardPage() {
               </div>
               {expandedComments[post.id] && <div className="mt-4 border-t border-line pt-4">
                 <form onSubmit={(event) => void addComment(event, post.id)} className="flex gap-2"><input className="field min-w-0 flex-1 py-2 text-sm" aria-label="Write a comment" placeholder="Add a comment…" value={commentDrafts[post.id] ?? ''} onChange={(event) => setCommentDrafts((current) => ({ ...current, [post.id]: event.target.value }))} /><button disabled={!commentDrafts[post.id]?.trim()} className="btn-primary px-3 py-2 text-xs">Comment</button></form>
-                <div className="mt-3 space-y-3">{(comments[post.id] ?? []).map((comment) => <div key={comment.id} className="rounded-xl bg-canvas p-3"><p className="text-xs font-bold">{comment.author?.fullName ?? 'Music maker'} <span className="ml-1 font-normal text-muted">{new Date(comment.createdAt).toLocaleDateString()}</span></p><p className="mt-1 whitespace-pre-wrap text-sm text-[#334139]">{comment.content}</p></div>)}</div>
+                <div className="mt-3 space-y-3">{(comments[post.id] ?? []).map((comment) => <div key={comment.id} className="flex items-start gap-2 rounded-xl bg-canvas p-3"><UserAvatar src={comment.author?.avatarUrl} name={comment.author?.fullName} size={28} /><div className="min-w-0 flex-1"><p className="text-xs font-bold">{comment.author?.fullName ?? 'Music maker'} <span className="ml-1 font-normal text-muted">{new Date(comment.createdAt).toLocaleDateString()}</span></p><p className="mt-1 whitespace-pre-wrap text-sm text-[#334139]">{comment.content}</p></div></div>)}</div>
               </div>}
             </article>
           ))}
@@ -382,7 +383,7 @@ export default function DashboardPage() {
               <p className="mt-1 text-xs text-muted">{opportunity.organization?.name ?? opportunity.organizer?.fullName ?? 'Music opportunity'}</p>
               <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted">{opportunity.location && <span className="inline-flex items-center gap-1"><MapPin size={11} />{opportunity.location}</span>}{opportunity.deadline && <span className="inline-flex items-center gap-1"><CalendarDays size={11} />Due {new Date(opportunity.deadline).toLocaleDateString()}</span>}</div>
             </Link>)}
-            {!opportunities.length && <p className="mt-3 text-xs text-muted">{discoveriesLoading ? 'Loading opportunities…' : 'No open opportunities yet.'}</p>}
+            {!opportunities.length && <p className="mt-3 text-xs text-muted">{discoveriesLoading ? 'Loading opportunities…' : 'There aren’t any open opportunities right now. Check back soon.'}</p>}
             <Link href="/app/opportunities" className="btn-secondary mt-4 w-full justify-center">Explore all opportunities</Link>
           </div>
           <div className="card p-5">
@@ -391,7 +392,7 @@ export default function DashboardPage() {
               {organization.logoUrl ? <img src={organization.logoUrl} alt="" className="h-9 w-9 rounded-xl object-cover" /> : <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#edf4eb] text-forest"><Building2 size={16} /></span>}
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">{organization.name}</span><span className="block truncate text-xs text-muted">{organization.type || 'Music organization'}{organization.location ? ` · ${organization.location}` : ''}</span></span>
             </Link>)}
-            {!publicOrganizations.length && <p className="mt-3 text-xs text-muted">{discoveriesLoading ? 'Loading organizations…' : 'No published organizations yet.'}</p>}
+            {!publicOrganizations.length && <p className="mt-3 text-xs text-muted">{discoveriesLoading ? 'Loading organizations…' : 'There aren’t any published organizations to show just yet.'}</p>}
           </div>
           <div className="card p-5">
             <div className="flex items-center justify-between"><h3 className="font-extrabold">Build your presence</h3><span className="text-sm font-black text-forest">{profilePercent}%</span></div>
@@ -406,11 +407,11 @@ export default function DashboardPage() {
           {communities.length ? <div className="mt-3 space-y-3">{communities.slice(0, 4).map((community) => {
             const membership = community.members?.find((member) => member.userId === user?.id);
             return <Link key={community.id} href={`/app/community/${community.id}`} className="flex items-center justify-between gap-2 text-sm hover:text-forest"><span className="min-w-0 truncate font-semibold">{community.name}</span><span className="shrink-0 text-[10px] text-muted">{membership?.status === 'Pending' ? 'Pending' : membership?.status === 'Active' ? 'Joined' : community.type}</span></Link>;
-          })}</div> : <p className="mt-2 text-xs text-muted">{discoveriesLoading ? 'Loading communities…' : 'No communities available yet.'}</p>}
+          })}</div> : <p className="mt-2 text-xs text-muted">{discoveriesLoading ? 'Loading communities…' : 'There aren’t any communities to explore just yet.'}</p>}
         </div>
         <div className="card p-5">
           <div className="flex items-center justify-between"><h3 className="font-extrabold">Music groups</h3><Link href="/app/groups" className="text-xs font-bold text-forest">Explore</Link></div>
-          {groups.length ? <div className="mt-3 space-y-3">{groups.slice(0, 4).map((group) => <Link key={group.id} href="/app/groups" className="flex items-center justify-between gap-2 text-sm hover:text-forest"><span className="min-w-0 truncate font-semibold">{group.name}</span><span className="shrink-0 text-[10px] text-muted">{group.members?.some((member) => member.status === 'Active') ? 'Joined' : group.type ?? 'Group'}</span></Link>)}</div> : <p className="mt-2 text-xs text-muted">{discoveriesLoading ? 'Loading music groups…' : 'No music groups available yet.'}</p>}
+          {groups.length ? <div className="mt-3 space-y-3">{groups.slice(0, 4).map((group) => <Link key={group.id} href="/app/groups" className="flex items-center justify-between gap-2 text-sm hover:text-forest"><span className="min-w-0 truncate font-semibold">{group.name}</span><span className="shrink-0 text-[10px] text-muted">{group.members?.some((member) => member.status === 'Active') ? 'Joined' : group.type ?? 'Group'}</span></Link>)}</div> : <p className="mt-2 text-xs text-muted">{discoveriesLoading ? 'Loading music groups…' : 'There aren’t any music groups to explore just yet.'}</p>}
         </div>
       </aside>
       {reportingPostId && <Modal title="Report post" onClose={() => setReportingPostId('')}>

@@ -7,6 +7,7 @@ import { ChangeEvent, FormEvent } from 'react';
 import { ArrowLeft, Check, Globe2, ImagePlus, LockKeyhole, MessageCircle, Pencil, Send, Users, X } from 'lucide-react';
 import { Notice } from '@/components/notice';
 import { Modal } from '@/components/modal';
+import { UserAvatar } from '@/components/user-avatar';
 import { api, uploadMedia } from '@/lib/api';
 import { Post, User } from '@/lib/types';
 
@@ -200,7 +201,7 @@ export default function CommunityDetailPage() {
     setUploadingMedia(true);
     try {
       const asset = await uploadMedia<UploadedMedia>(file, 'Post', 'Public');
-      if (!asset.url) throw new Error('Upload completed, but no public media URL was returned.');
+      if (!asset.url) throw new Error('We couldn’t finish uploading this image. Please try again or choose another file.');
       setPostMedia((current) => [...current, { url: asset.url, mimeType: asset.mimeType ?? file.type }]);
       setError('');
     } catch (reason) {
@@ -259,7 +260,7 @@ export default function CommunityDetailPage() {
           </div>
         </div>
         <div className="mt-5 grid gap-5 md:grid-cols-[1fr_300px]">
-          <section className="card p-5"><h2 className="font-extrabold">Community members</h2><div className="mt-4 space-y-3">{members.map((member) => <div key={member.id} className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#edf4eb] text-sm font-bold text-forest">{member.user.fullName[0]}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{member.user.fullName}</p><p className="text-xs text-muted">@{member.user.username}</p></div>{community.isDefault && member.userId !== user?.id && <button type="button" disabled={Boolean(startingChatId)} onClick={() => void startMemberChat(member.userId)} className="btn-secondary px-2.5 py-2 text-xs" aria-label={`Message ${member.user.fullName}`}><MessageCircle size={14} />{startingChatId === member.userId ? 'Opening…' : 'Message'}</button>}</div>)}{memberCursor && <button onClick={() => void loadMore('members')} disabled={loadingMore} className="mt-2 text-xs font-bold text-forest">{loadingMore ? 'Loading…' : 'Load more members'}</button>}</div></section>
+          <section className="card p-5"><h2 className="font-extrabold">Community members</h2><div className="mt-4 space-y-3">{members.map((member) => <div key={member.id} className="flex items-center gap-3"><UserAvatar src={member.user.avatarUrl} name={member.user.fullName} size={36} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{member.user.fullName}</p><p className="text-xs text-muted">@{member.user.username}</p></div>{community.isDefault && member.userId !== user?.id && <button type="button" disabled={Boolean(startingChatId)} onClick={() => void startMemberChat(member.userId)} className="btn-secondary px-2.5 py-2 text-xs" aria-label={`Message ${member.user.fullName}`}><MessageCircle size={14} />{startingChatId === member.userId ? 'Opening…' : 'Message'}</button>}</div>)}{memberCursor && <button onClick={() => void loadMore('members')} disabled={loadingMore} className="mt-2 text-xs font-bold text-forest">{loadingMore ? 'Loading…' : 'Load more members'}</button>}</div></section>
           <aside className="card p-5"><h2 className="font-extrabold">Community guidelines</h2>{community.rules.length ? <ul className="mt-4 space-y-3">{community.rules.map((rule) => <li key={rule.id}><p className="text-sm font-bold">{rule.title || 'Guideline'}</p><p className="mt-1 text-xs leading-5 text-muted">{rule.content}</p></li>)}</ul> : <p className="mt-3 text-sm leading-6 text-muted">Be respectful, support fellow musicians and keep collaboration constructive.</p>}</aside>
         </div>
         {communityGroups.length > 0 && <section className="card mt-5 p-5">
@@ -291,7 +292,7 @@ export default function CommunityDetailPage() {
           </form>}
           {posts.map((post) => <article key={post.id} className="card p-5">
             <div className="flex items-center gap-3">
-              {post.organization?.logoUrl ? <img src={post.organization.logoUrl} alt="" className="h-9 w-9 rounded-full object-cover" /> : <span className="grid h-9 w-9 place-items-center rounded-full bg-[#edf4eb] font-bold text-forest">{post.organization?.name?.[0] ?? post.author?.fullName?.[0] ?? 'M'}</span>}
+              {post.organization?.logoUrl ? <img src={post.organization.logoUrl} alt="" className="h-9 w-9 rounded-full object-cover" /> : post.organization ? <span className="grid h-9 w-9 place-items-center rounded-full bg-[#edf4eb] font-bold text-forest">{post.organization.name[0] ?? 'M'}</span> : <UserAvatar src={post.author?.avatarUrl} name={post.author?.fullName} size={36} />}
               <div>{post.organization ? <Link href={`/app/organizations/${post.organization.id}`} className="text-sm font-bold hover:text-forest">{post.organization.name}</Link> : <p className="text-sm font-bold">{post.author?.fullName ?? 'Community member'}</p>}<p className="text-xs text-muted">{post.organization ? `${post.organization.type ?? 'Organization'} · ` : ''}{new Date(post.createdAt).toLocaleString()}</p></div>
             </div>
             {post.content && <p className="mt-4 whitespace-pre-wrap text-sm leading-6">{post.content}</p>}
@@ -299,7 +300,7 @@ export default function CommunityDetailPage() {
               ? <a key={media.id} href={media.mediaUrl} target="_blank" rel="noreferrer" className="mt-3 block overflow-hidden rounded-xl"><img src={media.mediaUrl} alt="Community post attachment" loading="lazy" className="max-h-[560px] w-full rounded-xl object-contain" /></a>
               : <a key={media.id} href={media.mediaUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-canvas px-3 py-2 text-xs font-bold text-forest">Open attached media ↗</a>)}
           </article>)}
-          {posts.length === 0 && <div className="card p-6 text-center text-sm text-muted">No posts yet. Share the first update with this community.</div>}
+          {posts.length === 0 && <div className="card p-6 text-center text-sm text-muted">This community is quiet for now. Share the first update and get the conversation started.</div>}
           {postCursor && <button onClick={() => void loadMore('posts')} disabled={loadingMore} className="btn-secondary w-full justify-center">{loadingMore ? 'Loading…' : 'Load older posts'}</button>}
         </section>
         {isOwner && community.type === 'Private' && <section className="card mt-5 p-5">
@@ -308,7 +309,7 @@ export default function CommunityDetailPage() {
             <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{request.user.fullName}</p><p className="text-xs text-muted">@{request.user.username}</p></div>
             <button type="button" disabled={busy} onClick={() => void reviewRequest(request.id, 'approve')} aria-label={`Approve ${request.user.fullName}`} className="btn-primary px-3 py-2 text-xs"><Check size={14} /> Approve</button>
             <button type="button" disabled={busy} onClick={() => void reviewRequest(request.id, 'reject')} aria-label={`Reject ${request.user.fullName}`} className="btn-secondary px-3 py-2 text-xs"><X size={14} /> Decline</button>
-          </div>)}</div> : <p className="mt-2 text-sm text-muted">No membership requests right now.</p>}
+          </div>)}</div> : <p className="mt-2 text-sm text-muted">There are no requests to review right now.</p>}
         </section>}
       </div>}
       {editing && community && <Modal title="Edit community" onClose={() => setEditing(false)}>

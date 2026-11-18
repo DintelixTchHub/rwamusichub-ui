@@ -115,7 +115,7 @@ export default function CommunityPage() {
         ))}
       </div>
       {loading && <div className="card mt-5 p-6 text-sm text-muted">Finding communities…</div>}
-      {!loading && communities.length === 0 && !error && <div className="card mt-5 p-8 text-center text-sm text-muted">No communities yet. Start one and bring your people together.</div>}
+      {!loading && communities.length === 0 && !error && <div className="card mt-5 p-8 text-center text-sm text-muted">There aren’t any communities to explore yet. Start one and bring your people together.</div>}
     </section>
   );
 }

@@ -146,12 +146,13 @@ export default function ProfilePage() {
     setSuccess('');
     try {
       const asset = await uploadMedia<AvatarAsset>(file, 'Avatar', 'Public');
-      if (!asset.id || !asset.url) throw new Error('No public image URL was returned. Check backend R2 configuration.');
+      if (!asset.id || !asset.url) throw new Error('We couldn’t finish uploading your photo. Please try again or choose another image.');
       await api('/users/me/profile', {
         method: 'PATCH',
         body: JSON.stringify({ avatarMediaId: asset.id }),
       });
       setAccount((current) => current ? { ...current, avatarMediaId: asset.id, avatarUrl: asset.url ?? null } : current);
+      window.dispatchEvent(new Event('rmh:profile-changed'));
       setSuccess('Profile photo updated.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update your profile photo.');
@@ -192,7 +193,7 @@ export default function ProfilePage() {
     try {
       const asset = await uploadMedia<MediaAsset>(file, 'Portfolio', 'Public');
       if (!asset.url) {
-        throw new Error('Upload completed, but no public media URL was returned. Configure R2_PUBLIC_BASE_URL on the backend before attaching portfolio media.');
+        throw new Error('We couldn’t finish uploading this media. Please try again or choose another file.');
       }
       setItem((current) => ({ ...current, mediaUrl: asset.url ?? '' }));
       setSuccess('Media uploaded. Add a title and save it to your portfolio.');
@@ -293,7 +294,7 @@ export default function ProfilePage() {
                   {entry.name}
                 </label>;
               })}
-              {catalog.length === 0 && <span className="text-xs text-muted">Catalog is empty.</span>}
+              {catalog.length === 0 && <span className="text-xs text-muted">Options will appear here when they’re available.</span>}
             </div>
           </fieldset>
         ))}
